@@ -106,6 +106,14 @@
                 </div>
             </div>
         </section>
+        
+        <!-- Mensaje de error de Firebase si la configuración no está lista -->
+        <div id="firebase-error-message" class="hidden fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 z-50">
+            <div class="bg-red-500 text-white p-6 rounded-lg shadow-xl max-w-lg text-center">
+                <p class="text-xl font-bold mb-4">Error de Conexión a la Base de Datos</p>
+                <p>La configuración de Firebase está incompleta. Por favor, ve al código (el archivo `index.html`) y agrega tus credenciales de Firebase en la sección de scripts para que la base de datos funcione.</p>
+            </div>
+        </div>
 
     </main>
 
@@ -132,18 +140,41 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Variables globales proporcionadas por el entorno del canvas
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : '';
+        // NOTA: Si estás subiendo esta página a tu propio hosting,
+        //       debes reemplazar los marcadores de posición con tu propia
+        //       configuración de Firebase.
+        //       Encuentra estos datos en la Consola de Firebase.
+       const firebaseConfig = {
+  apiKey: "AIzaSyCB-ji3l8lYHniTLYqpaK4yBTWG_YxfV8c",
+  authDomain: "aplicacionesdrc.firebaseapp.com",
+  projectId: "aplicacionesdrc",
+  storageBucket: "aplicacionesdrc.firebasestorage.app",
+  messagingSenderId: "999986702809",
+  appId: "1:999986702809:web:af8a8327c99fd54f6e51c8",
+  measurementId: "G-ES5V6KDYMD"
+};
+        };
+        const app_id = firebaseConfig.appId;
         
-        // Inicialización de Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
+        // Comprueba si la configuración de Firebase es válida antes de inicializar
+        let db, auth;
+        const firebaseErrorMessage = document.getElementById('firebase-error-message');
+        if (firebaseConfig.apiKey === "aplicacionesdrc.firebaseapp.com" || Object.keys(firebaseConfig).length === 0) {
+            firebaseErrorMessage.classList.remove('hidden');
+            console.error("Firebase no está configurado. Por favor, añade tus credenciales.");
+        } else {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+            } catch (error) {
+                firebaseErrorMessage.classList.remove('hidden');
+                console.error("Error al inicializar Firebase. Comprueba tu configuración: ", error);
+            }
+        }
+        
         // Referencia a la colección pública donde se guardarán las apps
-        const publicAppsRef = collection(db, `artifacts/${appId}/public/data/apps`);
+        const publicAppsRef = collection(db, `artifacts/${app_id}/public/data/apps`);
 
         const adminPassword = 'DRC27';
         const loginForm = document.getElementById('login-form');
@@ -220,10 +251,10 @@
             e.preventDefault();
             const passwordInput = document.getElementById('password');
             const loginMessage = document.getElementById('login-message');
-
+            
             if (passwordInput.value === adminPassword) {
                 try {
-                    await (initialAuthToken ? signInWithCustomToken(auth, initialAuthToken) : signInAnonymously(auth));
+                    await signInAnonymously(auth);
                     showAdminPanel();
                     loginMessage.classList.add('hidden');
                 } catch (error) {
@@ -277,20 +308,22 @@
         });
 
         // --- Oyentes en tiempo real de Firestore (onSnapshot) ---
-        onSnapshot(publicAppsRef, (snapshot) => {
-            const apps = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            
-            if (!publicContent.classList.contains('hidden')) {
-                renderPublicApps(apps);
-            } else if (!adminPanel.classList.contains('hidden')) {
-                renderAdminApps(apps);
-            }
-        });
-
-        // Mensajes de depuración en la consola
+        // Solo inicializa el listener si Firebase se inicializó correctamente
+        if (db) {
+            onSnapshot(publicAppsRef, (snapshot) => {
+                const apps = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                if (!publicContent.classList.contains('hidden')) {
+                    renderPublicApps(apps);
+                } else if (!adminPanel.classList.contains('hidden')) {
+                    renderAdminApps(apps);
+                }
+            });
+        }
+        
         console.log("Sitio web cargado. Para acceder al panel de administración, haz clic en el botón 'Admin' en la esquina inferior derecha.");
     </script>
 </body>
