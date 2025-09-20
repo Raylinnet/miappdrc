@@ -20,45 +20,45 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // Firebase Config and global variables
+        const { useState, useEffect } = React;
+
+        // MUY IMPORTANTE: REEMPLAZA LOS VALORES CON TU CONFIGURACIÓN DE FIREBASE
         const firebaseConfig = {
-            apiKey: "your-api-key",
-            authDomain: "your-auth-domain",
-            projectId: "your-project-id",
-            storageBucket: "your-storage-bucket",
-            messagingSenderId: "your-messaging-sender-id",
-            appId: "your-app-id"
+            apiKey: "AIzaSyCB-ji3l8lYHniTLYqpaK4yBTWG_YxfV8c",
+            authDomain: "aplicacionesdrc.firebaseapp.com",
+            projectId: "aplicacionesdrc",
+            storageBucket: "aplicacionesdrc.firebasestorage.app",
+            messagingSenderId: "999986702809",
+            appId: "1:999986702809:web:af8a8327c99fd54f6e51c8",
+            measurementId: "G-ES5V6KDYMD"
         };
-        const appId = "default-app-id";
-        const initialAuthToken = null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfigFromEnv = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : firebaseConfig;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
-        // Admin credentials
+        // Credenciales de administrador
         const ADMIN_USERNAME = "DRC27";
         const ADMIN_PASSWORD = "DRC27";
 
-        // Firebase & Firestore SDKs
-        // Note: These must be imported after the React scripts to avoid conflicts
-        const { initializeApp } = firebase;
-        const { getAuth, signInWithCustomToken, onAuthStateChanged, signInAnonymously } = firebase.auth;
-        const { getFirestore, collection, onSnapshot, addDoc, query, doc, deleteDoc } = firebase.firestore;
+        // Inicializar Firebase
+        const firebaseApp = firebase.initializeApp(firebaseConfigFromEnv);
+        const auth = firebaseApp.auth();
+        const db = firebaseApp.firestore();
 
-        const { useState, useEffect } = React;
+        // Nivel de log para depuración
+        db.settings({ logLevel: 'debug' });
 
         const App = () => {
-            const [db, setDb] = useState(null);
-            const [auth, setAuth] = useState(null);
             const [userId, setUserId] = useState('');
             const [apps, setApps] = useState([]);
             const [contactMessages, setContactMessages] = useState([]);
             const [loading, setLoading] = useState(true);
             const [isAuthReady, setIsAuthReady] = useState(false);
             
-            // State for Contact Form
             const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
             const [isSubmittingContact, setIsSubmittingContact] = useState(false);
             const [contactStatus, setContactStatus] = useState(null);
 
-            // State for Admin Panel & Login
             const [showAdminPanel, setShowAdminPanel] = useState(false);
             const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -68,72 +68,69 @@
             const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
             const [appToDelete, setAppToDelete] = useState(null);
 
-            // State for Search and Filters
             const [searchQuery, setSearchQuery] = useState('');
             const [selectedCategory, setSelectedCategory] = useState('all');
 
-            // Initialise Firebase and authenticate user
+            // Autenticar usuario
             useEffect(() => {
-                try {
-                    const app = initializeApp(firebaseConfig);
-                    const authInstance = getAuth(app);
-                    const dbInstance = getFirestore(app);
-                    setDb(dbInstance);
-                    setAuth(authInstance);
-
-                    const unsubscribe = onAuthStateChanged(authInstance, (user) => {
-                        if (user) {
-                            setUserId(user.uid);
-                        } else {
-                            setUserId(crypto.randomUUID());
-                        }
-                        setIsAuthReady(true);
-                    });
-
-                    if (initialAuthToken) {
-                        signInWithCustomToken(authInstance, initialAuthToken).catch(console.error);
+                const unsubscribe = auth.onAuthStateChanged((user) => {
+                    if (user) {
+                        setUserId(user.uid);
                     } else {
-                        signInAnonymously(authInstance).catch(console.error);
+                        setUserId(crypto.randomUUID());
                     }
+                    setIsAuthReady(true);
+                });
 
-                    return () => unsubscribe();
-                } catch (error) {
-                    console.error("Error initializing Firebase:", error);
-                    setLoading(false);
+                if (initialAuthToken) {
+                    auth.signInWithCustomToken(initialAuthToken).catch(console.error);
+                } else {
+                    auth.signInAnonymously().catch(console.error);
                 }
+
+                return () => unsubscribe();
             }, []);
 
-            // Handle URL-based admin access
+            // Manejar acceso de administrador basado en URL
             useEffect(() => {
-                const path = window.location.pathname.split('/');
-                if (path.length === 4 && path[1] === 'admin') {
-                    const username = path[2];
-                    const password = path[3];
-                    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-                        setIsLoggedIn(true);
-                        setShowAdminPanel(true);
+                const checkAdminPanel = () => {
+                    const path = window.location.pathname.split('/').filter(p => p !== '');
+                    if (path.length === 3 && path[0] === 'admin') {
+                        const username = path[1];
+                        const password = path[2];
+                        if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+                            setIsLoggedIn(true);
+                            setShowAdminPanel(true);
+                        } else {
+                            window.history.pushState({}, '', '/');
+                            setIsLoggedIn(false);
+                            setShowAdminPanel(false);
+                        }
                     } else {
-                        window.history.pushState({}, '', '/');
                         setIsLoggedIn(false);
                         setShowAdminPanel(false);
                     }
-                } else {
-                    setIsLoggedIn(false);
-                    setShowAdminPanel(false);
-                }
+                };
+
+                window.addEventListener('popstate', checkAdminPanel);
+                checkAdminPanel();
+
+                return () => {
+                    window.removeEventListener('popstate', checkAdminPanel);
+                };
             }, []);
 
-            // Fetch public data (apps) from Firestore
+            // Obtener datos públicos (aplicaciones) de Firestore
             useEffect(() => {
-                if (!db || !isAuthReady || !auth || !auth.currentUser) {
+                if (!db || !isAuthReady) {
                     setLoading(false); 
                     return;
                 }
                 setLoading(true);
                 const appsPath = `/artifacts/${appId}/public/data/apps`;
-                const appsQuery = query(collection(db, appsPath));
+                const appsRef = db.collection(appsPath);
 
-                const unsubscribeApps = onSnapshot(appsQuery, (snapshot) => {
+                const unsubscribeApps = appsRef.onSnapshot((snapshot) => {
                     const appsList = snapshot.docs.map(doc => ({
                         id: doc.id,
                         ...doc.data()
@@ -149,21 +146,21 @@
                 return () => {
                     unsubscribeApps();
                 };
-            }, [db, isAuthReady, auth]);
+            }, [isAuthReady]);
 
-            // Fetch private data (contact messages) from Firestore
+            // Obtener datos privados (mensajes de contacto) de Firestore
             useEffect(() => {
-                if (!db || !isAuthReady || !isLoggedIn || !auth || !auth.currentUser) return;
+                if (!db || !isAuthReady || !isLoggedIn || !userId) return;
                 const messagesPath = `/artifacts/${appId}/users/${userId}/messages`;
-                const messagesQuery = query(collection(db, messagesPath));
+                const messagesRef = db.collection(messagesPath);
 
-                const unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
+                const unsubscribeMessages = messagesRef.onSnapshot((snapshot) => {
                     const messagesList = snapshot.docs.map(doc => ({
                         id: doc.id,
                         ...doc.data(),
                         timestamp: doc.data().timestamp?.toDate()
                     }));
-                    messagesList.sort((a, b) => b.timestamp - a.timestamp); // Sort descending by date
+                    messagesList.sort((a, b) => b.timestamp - a.timestamp); // Ordenar por fecha de forma descendente
                     setContactMessages(messagesList);
                 }, (error) => {
                     console.error("Error fetching contact messages:", error);
@@ -172,7 +169,7 @@
                 return () => {
                     unsubscribeMessages();
                 };
-            }, [db, isAuthReady, isLoggedIn, userId, auth]);
+            }, [isAuthReady, isLoggedIn, userId]);
 
 
             const handleContactSubmit = async (e) => {
@@ -187,9 +184,9 @@
 
                 try {
                     const path = `/artifacts/${appId}/users/${userId}/messages`;
-                    await addDoc(collection(db, path), {
+                    await db.collection(path).add({
                         ...contactForm,
-                        timestamp: new Date(),
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                     });
                     setContactStatus({ type: 'success', message: '¡Mensaje enviado con éxito!' });
                     setContactForm({ name: '', email: '', message: '' });
@@ -232,7 +229,7 @@
 
                 try {
                     const path = `/artifacts/${appId}/public/data/apps`;
-                    await addDoc(collection(db, path), newAppForm);
+                    await db.collection(path).add(newAppForm);
                     setAddAppStatus({ type: 'success', message: '¡Aplicación añadida con éxito!' });
                     setNewAppForm({ name: '', category: '', description: '', version: '', downloadUrl: '', iconUrl: '', featured: false });
                 } catch (error) {
@@ -258,7 +255,7 @@
 
                 try {
                     const path = `/artifacts/${appId}/public/data/apps`;
-                    await deleteDoc(doc(db, path, appToDelete.id));
+                    await db.collection(path).doc(appToDelete.id).delete();
                     setAddAppStatus({ type: 'success', message: '¡Aplicación eliminada con éxito!' });
                 } catch (error) {
                     console.error("Error al eliminar la aplicación:", error);
@@ -272,13 +269,13 @@
                 if (!db) return;
                 try {
                     const path = `/artifacts/${appId}/users/${userId}/messages`;
-                    await deleteDoc(doc(db, path, messageId));
+                    await db.collection(path).doc(messageId).delete();
                 } catch (error) {
                     console.error("Error al eliminar el mensaje:", error);
                 }
             };
 
-            // Filter apps based on search query and category
+            // Filtrar aplicaciones basadas en la búsqueda y la categoría
             const filteredApps = apps.filter(app => {
                 const matchesSearch = app.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                     app.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -294,34 +291,34 @@
 
             return (
                 <div className="min-h-screen bg-gray-100 antialiased font-sans">
-                    {/* Header */}
+                    {/* Encabezado */}
                     <header className="bg-white shadow-sm p-4 sticky top-0 z-50">
                         <div className="container mx-auto flex justify-between items-center">
                             <a href="#" className="text-2xl font-bold text-gray-800">Aplicaciones DRC</a>
                             <div className="flex items-center space-x-4">
-                                <a href="/admin/DRC27/DRC27" className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-blue-700 transition-colors">
+                                <a href="#contact" className="hidden sm:block text-gray-600 hover:text-gray-900 transition-colors">Contacto</a>
+                                <button onClick={() => window.location.pathname = `/admin/${ADMIN_USERNAME}/${ADMIN_PASSWORD}`} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-semibold hover:bg-gray-300 transition-colors">
                                     Panel
-                                </a>
+                                </button>
                                 <p className="text-sm text-gray-500 hidden md:block">ID de Usuario: {userId}</p>
                             </div>
                         </div>
                     </header>
 
-                    {/* Main Content */}
+                    {/* Contenido principal */}
                     <main className="container mx-auto my-8 p-4">
 
-                        {/* Admin Panel */}
+                        {/* Panel de administración */}
                         {showAdminPanel && (
                             <section className="my-16 p-8 bg-white rounded-xl shadow-lg">
                                 <h2 className="text-3xl font-bold text-gray-800 mb-6">Panel de Administración</h2>
                                 
-                                {/* Admin Tools */}
                                 <div className="space-y-12">
                                     <button onClick={handleLogout} className="bg-red-500 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-red-600 transition-colors">
                                         Cerrar Sesión
                                     </button>
                                     
-                                    {/* Add App Section */}
+                                    {/* Sección para añadir una app */}
                                     <div className="space-y-4">
                                         <h3 className="text-2xl font-bold">Añadir Nueva Aplicación</h3>
                                         {addAppStatus && (
@@ -348,7 +345,7 @@
                                         </form>
                                     </div>
                                     
-                                    {/* Contact Messages Section */}
+                                    {/* Sección de Mensajes de contacto */}
                                     <div className="space-y-4">
                                         <h3 className="text-2xl font-bold">Mensajes de Contacto</h3>
                                         {contactMessages.length === 0 ? (
@@ -374,7 +371,7 @@
                             </section>
                         )}
 
-                        {/* Delete Confirmation Modal */}
+                        {/* Modal de confirmación de eliminación */}
                         {showDeleteConfirmation && (
                             <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
                                 <div className="bg-white p-6 rounded-lg shadow-xl text-center">
@@ -387,7 +384,7 @@
                             </div>
                         )}
 
-                        {/* Hero Section */}
+                        {/* Sección de héroe */}
                         <section className="text-center my-16">
                             <h1 className="text-5xl font-extrabold text-gray-900 mb-4">Descubre y Descarga tus Apps Favoritas</h1>
                             <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-8">
@@ -399,7 +396,7 @@
                             </a>
                         </section>
                         
-                        {/* Search and Filter */}
+                        {/* Búsqueda y Filtros */}
                         <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mb-8">
                             <input
                                 type="text"
@@ -422,7 +419,7 @@
                         </div>
 
 
-                        {/* Dynamic App Sections */}
+                        {/* Sección de apps dinámica */}
                         {loading ? (
                             <div className="flex justify-center items-center h-48">
                                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
@@ -464,7 +461,7 @@
                             </>
                         )}
 
-                        {/* Contact Section */}
+                        {/* Sección de contacto */}
                         <section id="contact" className="my-16 text-center">
                             <h2 className="text-4xl font-bold text-gray-800 mb-8">Contacto</h2>
                             <p className="text-gray-600 mb-4">
@@ -492,7 +489,7 @@
                         </section>
                     </main>
 
-                    {/* Footer */}
+                    {/* Pie de página */}
                     <footer className="bg-gray-800 text-white p-8 text-center mt-12">
                         <p>&copy; 2024 Descargas de Apps Externas. Todos los derechos reservados.</p>
                     </footer>
@@ -509,4 +506,3 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 </body>
 </html>
-
