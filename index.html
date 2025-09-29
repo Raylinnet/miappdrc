@@ -3,328 +3,240 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Sitio de Descarga de Apps</title>
-    <!-- Tailwind CSS CDN para un diseño moderno y responsive -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Chatbot IA (Solo HTML/JS con clave expuesta)</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        /* CSS BÁSICO - Mantenemos el estilo de la estructura anterior */
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-            color: #1f2937;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
         }
-        .container {
-            max-width: 1280px;
-            margin: auto;
-            padding: 1rem;
+
+        .chat-container {
+            width: 100%;
+            max-width: 600px;
+            height: 80vh;
+            background-color: #fff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
-        .app-card-group {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
+
+        .chat-header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
         }
-        .app-card {
-            @apply flex flex-col items-center justify-between p-6 bg-white rounded-lg shadow-md transition-all duration-300 transform hover:scale-105;
+
+        .chat-box {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 18px;
+            max-width: 75%;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background-color: #DCF8C6;
+            margin-left: auto;
+        }
+
+        .ia-message {
+            background-color: #E5E5EA;
+            margin-right: auto;
+        }
+        
+        .loading-message {
+            background-color: #ccc;
+            animation: pulse 1.5s infinite;
+        }
+
+        .chat-input-area {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #ddd;
+        }
+
+        .chat-input-area input[type="text"] {
+            flex-grow: 1;
+            padding: 10px 15px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            font-size: 1em;
+            margin-right: 10px;
+        }
+
+        .chat-input-area button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        .chat-input-area button:hover {
+            background-color: #45a049;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1.0; }
+            100% { opacity: 0.5; }
         }
     </style>
 </head>
-<body class="min-h-screen">
+<body>
 
-    <!-- Header y navegación principal -->
-    <header class="bg-indigo-600 text-white py-12 text-center shadow-lg">
-        <div class="container">
-            <h1 class="text-4xl sm:text-5xl font-bold">Mi Sitio de Apps y Juegos</h1>
-            <p class="mt-2 text-xl sm:text-2xl">Tu lugar para encontrar tus aplicaciones y juegos favoritos.</p>
+<div class="chat-container">
+    <div class="chat-header">
+        DRC IA
+    </div>
+
+    <div class="chat-box" id="chat-box">
+        <div class="message ia-message">
+            ¡Hola! Soy un asistente impulsado por DRC preguntame lo que quieras..
         </div>
-    </header>
+    </div>
 
-    <main class="container py-8">
+    <div class="chat-input-area">
+        <input type="text" id="user-input" placeholder="Escribe tu mensaje aquí..." autofocus>
+        <button id="send-button">Enviar</button>
+    </div>
+</div>
+
+<script>
+    // 🛑 ATENCIÓN DE SEGURIDAD: ESTA CLAVE ESTÁ EXPUESTA EN EL CÓDIGO FUENTE.
+    // Solo úsala para pruebas personales.
+    const GEMINI_API_KEY = "AIzaSyCTHw8eAprGb9ttKwnA8L__FxTEV9c1K84"; 
+    const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+    
+    // Referencias a los elementos del DOM
+    const chatBox = document.getElementById('chat-box');
+    const userInput = document.getElementById('user-input');
+    const sendButton = document.getElementById('send-button');
+
+    // Función para añadir un mensaje (con clase para estilos)
+    function addMessage(messageText, isUser, isLoading = false) {
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message');
         
-        <!-- Contenido principal para el público -->
-        <section id="public-content" class="bg-white p-6 sm:p-8 rounded-xl shadow-lg transition-all duration-500">
-            <h2 class="text-3xl font-semibold text-center mb-6 text-indigo-700">Aplicaciones Destacadas</h2>
-            <div id="app-list" class="app-card-group">
-                <!-- Las tarjetas de las apps se generarán aquí con JavaScript -->
-            </div>
-        </section>
-
-        <!-- Panel de inicio de sesión -->
-        <section id="login-panel" class="hidden mt-8 flex justify-center items-center">
-            <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
-                <h2 class="text-2xl font-semibold text-center mb-6">Acceso de Administración</h2>
-                <form id="login-form" class="space-y-4">
-                    <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
-                        <input type="password" id="password" required class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                    </div>
-                    <button type="submit" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                        Iniciar Sesión
-                    </button>
-                    <p id="login-message" class="text-center text-red-500 mt-2 hidden">Contraseña incorrecta. Inténtelo de nuevo.</p>
-                </form>
-            </div>
-        </section>
-
-        <!-- Panel de administración (oculto por defecto) -->
-        <section id="admin-panel" class="hidden mt-8 bg-white p-6 sm:p-8 rounded-xl shadow-lg transition-all duration-500">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-3xl font-semibold text-indigo-700">Panel de Administración</h2>
-                <button id="logout-button" class="py-2 px-4 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">Cerrar Sesión</button>
-            </div>
-            
-            <div class="space-y-6">
-                <div id="add-app-section" class="border border-gray-200 p-6 rounded-lg">
-                    <h3 class="text-xl font-medium mb-4">Añadir Nueva App</h3>
-                    <form id="add-app-form" class="space-y-4">
-                        <div>
-                            <label for="appName" class="block text-sm font-medium text-gray-700">Nombre de la App</label>
-                            <input type="text" id="appName" required class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm">
-                        </div>
-                        <div>
-                            <label for="appDescription" class="block text-sm font-medium text-gray-700">Descripción</label>
-                            <textarea id="appDescription" rows="3" required class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm"></textarea>
-                        </div>
-                        <div>
-                            <label for="appUrl" class="block text-sm font-medium text-gray-700">URL de Descarga</label>
-                            <input type="url" id="appUrl" required class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm">
-                        </div>
-                        <div>
-                            <label for="appIconUrl" class="block text-sm font-medium text-gray-700">URL del Icono</label>
-                            <input type="url" id="appIconUrl" class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm">
-                        </div>
-                        <button type="submit" class="w-full py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
-                            Añadir App
-                        </button>
-                    </form>
-                </div>
-
-                <div id="manage-apps-section" class="border border-gray-200 p-6 rounded-lg">
-                    <h3 class="text-xl font-medium mb-4">Gestionar Apps Existentes</h3>
-                    <ul id="admin-app-list" class="space-y-4">
-                        <!-- Las apps gestionables se listarán aquí -->
-                    </ul>
-                </div>
-            </div>
-        </section>
-        
-        <!-- Mensaje de error de Firebase si la configuración no está lista -->
-        <div id="firebase-error-message" class="hidden fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 z-50">
-            <div class="bg-red-500 text-white p-6 rounded-lg shadow-xl max-w-lg text-center">
-                <p class="text-xl font-bold mb-4">Error de Conexión a la Base de Datos</p>
-                <p>La configuración de Firebase está incompleta. Por favor, ve al código (el archivo `index.html`) y agrega tus credenciales de Firebase en la sección de scripts para que la base de datos funcione.</p>
-            </div>
-        </div>
-
-    </main>
-
-    <!-- Footer con enlaces legales -->
-    <footer class="bg-gray-800 text-gray-300 py-8 text-center shadow-lg mt-12">
-        <div class="container">
-            <p>&copy; 2024 Mi Sitio de Apps. Todos los derechos reservados.</p>
-            <nav class="mt-4">
-                <a href="#" class="mx-2 hover:text-white transition-colors duration-200">Aviso Legal</a> | 
-                <a href="#" class="mx-2 hover:text-white transition-colors duration-200">Política de Privacidad</a> | 
-                <a href="#" class="mx-2 hover:text-white transition-colors duration-200">DMCA</a>
-            </nav>
-        </div>
-    </footer>
-
-    <!-- Botón flotante para alternar entre la vista pública y el panel de administración -->
-    <button id="admin-toggle-button" class="fixed bottom-4 right-4 bg-indigo-600 text-white rounded-full p-4 shadow-xl hover:bg-indigo-700 transition-colors duration-200 z-50">
-        Admin
-    </button>
-
-    <!-- Scripts de Firebase -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // NOTA: Si estás subiendo esta página a tu propio hosting,
-        //       debes reemplazar los marcadores de posición con tu propia
-        //       configuración de Firebase.
-        //       Encuentra estos datos en la Consola de Firebase.
-       const firebaseConfig = {
-  apiKey: "AIzaSyCB-ji3l8lYHniTLYqpaK4yBTWG_YxfV8c",
-  authDomain: "aplicacionesdrc.firebaseapp.com",
-  projectId: "aplicacionesdrc",
-  storageBucket: "aplicacionesdrc.firebasestorage.app",
-  messagingSenderId: "999986702809",
-  appId: "1:999986702809:web:af8a8327c99fd54f6e51c8",
-  measurementId: "G-ES5V6KDYMD"
-};
-        };
-        const app_id = firebaseConfig.appId;
-        
-        // Comprueba si la configuración de Firebase es válida antes de inicializar
-        let db, auth;
-        const firebaseErrorMessage = document.getElementById('firebase-error-message');
-        if (firebaseConfig.apiKey === "aplicacionesdrc.firebaseapp.com" || Object.keys(firebaseConfig).length === 0) {
-            firebaseErrorMessage.classList.remove('hidden');
-            console.error("Firebase no está configurado. Por favor, añade tus credenciales.");
+        if (isUser) {
+            messageDiv.classList.add('user-message');
         } else {
-            try {
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-            } catch (error) {
-                firebaseErrorMessage.classList.remove('hidden');
-                console.error("Error al inicializar Firebase. Comprueba tu configuración: ", error);
-            }
+            messageDiv.classList.add('ia-message');
+        }
+
+        if (isLoading) {
+             messageDiv.classList.add('loading-message');
+             messageText = 'Escribiendo...'; 
         }
         
-        // Referencia a la colección pública donde se guardarán las apps
-        const publicAppsRef = collection(db, `artifacts/${app_id}/public/data/apps`);
-
-        const adminPassword = 'DRC27';
-        const loginForm = document.getElementById('login-form');
-        const loginPanel = document.getElementById('login-panel');
-        const adminPanel = document.getElementById('admin-panel');
-        const publicContent = document.getElementById('public-content');
-        const logoutButton = document.getElementById('logout-button');
-        const addAppForm = document.getElementById('add-app-form');
-        const appList = document.getElementById('app-list');
-        const adminAppList = document.getElementById('admin-app-list');
-        const adminToggleButton = document.getElementById('admin-toggle-button');
-
-        // --- Funciones para renderizar las vistas ---
-        const renderPublicApps = (apps) => {
-            if (apps.length === 0) {
-                appList.innerHTML = '<p class="text-center text-gray-500 col-span-full">No hay aplicaciones para mostrar.</p>';
-                return;
-            }
-            appList.innerHTML = apps.map(app => `
-                <div class="app-card">
-                    <img src="${app.iconUrl}" alt="${app.name} Icono" class="w-24 h-24 rounded-full mx-auto mb-4 object-cover">
-                    <h3 class="text-xl font-semibold text-indigo-600">${app.name}</h3>
-                    <p class="text-gray-600 mt-2 text-center">${app.description}</p>
-                    <a href="${app.url}" target="_blank" class="mt-4 w-full py-2 px-4 bg-green-500 text-white font-medium rounded-lg text-sm text-center transition-colors hover:bg-green-600">
-                        Descargar
-                    </a>
-                </div>
-            `).join('');
-        };
-
-        const renderAdminApps = (apps) => {
-            if (apps.length === 0) {
-                 adminAppList.innerHTML = '<p class="text-center text-gray-500">No hay aplicaciones para gestionar.</p>';
-                 return;
-            }
-            adminAppList.innerHTML = apps.map(app => `
-                <li class="flex justify-between items-center bg-gray-50 p-3 rounded-md shadow-sm">
-                    <span class="font-medium truncate">${app.name}</span>
-                    <button data-id="${app.id}" class="delete-app-btn text-red-500 hover:text-red-700 transition-colors">
-                        Eliminar
-                    </button>
-                </li>
-            `).join('');
-        };
-
-        // --- Lógica de visualización de los paneles ---
-        // Por defecto, se muestra el contenido público
-        publicContent.classList.remove('hidden');
-        loginPanel.classList.add('hidden');
-        adminPanel.classList.add('hidden');
+        messageDiv.textContent = messageText;
+        chatBox.appendChild(messageDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
         
-        // Maneja el clic en el botón flotante para alternar vistas
-        adminToggleButton.addEventListener('click', () => {
-            if (publicContent.classList.contains('hidden')) {
-                // Si estamos en el panel de login o admin, volvemos a la vista pública
-                loginPanel.classList.add('hidden');
-                adminPanel.classList.add('hidden');
-                publicContent.classList.remove('hidden');
-                adminToggleButton.textContent = "Admin";
-            } else {
-                // Si estamos en la vista pública, mostramos el panel de login
-                publicContent.classList.add('hidden');
-                loginPanel.classList.remove('hidden');
-                adminToggleButton.textContent = "Volver";
-            }
-        });
+        return messageDiv; // Devuelve la referencia para poder eliminar/modificar si es "cargando"
+    }
 
-        const showAdminPanel = () => {
-            loginPanel.classList.add('hidden');
-            adminPanel.classList.remove('hidden');
-        };
+    // Lógica para comunicarse con la API de Gemini (Función principal)
+    async function getAiResponse(userMessage) {
+        // La clave API es correcta, pero la dejamos para que el usuario sepa dónde está.
+        if (!GEMINI_API_KEY || GEMINI_API_KEY.includes('TU_CLAVE')) {
+            return "ERROR: La clave API no está configurada.";
+        }
         
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const passwordInput = document.getElementById('password');
-            const loginMessage = document.getElementById('login-message');
-            
-            if (passwordInput.value === adminPassword) {
-                try {
-                    await signInAnonymously(auth);
-                    showAdminPanel();
-                    loginMessage.classList.add('hidden');
-                } catch (error) {
-                    console.error("Error signing in:", error);
-                    loginMessage.textContent = "Error de autenticación. Intente de nuevo.";
-                    loginMessage.classList.remove('hidden');
-                }
-            } else {
-                loginMessage.textContent = "Contraseña incorrecta. Inténtelo de nuevo.";
-                loginMessage.classList.remove('hidden');
-            }
-            passwordInput.value = ''; // Limpiar el campo
-        });
-
-        logoutButton.addEventListener('click', () => {
-            // Vuelve a la pantalla pública
-            adminPanel.classList.add('hidden');
-            publicContent.classList.remove('hidden');
-            adminToggleButton.textContent = "Admin";
-        });
-
-        // --- Manejo de la adición de apps a Firestore ---
-        addAppForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const newApp = {
-                name: document.getElementById('appName').value,
-                description: document.getElementById('appDescription').value,
-                url: document.getElementById('appUrl').value,
-                iconUrl: document.getElementById('appIconUrl').value || 'https://placehold.co/100x100/e5e7eb/6b7280?text=App', // URL del icono
-                timestamp: Date.now()
-            };
-            
-            try {
-                await addDoc(publicAppsRef, newApp);
-                addAppForm.reset();
-            } catch (e) {
-                console.error("Error adding document: ", e);
-            }
-        });
-
-        // --- Manejo de la eliminación de apps de Firestore ---
-        adminAppList.addEventListener('click', async (e) => {
-            if (e.target.classList.contains('delete-app-btn')) {
-                const appIdToDelete = e.target.dataset.id;
-                try {
-                    await deleteDoc(doc(db, publicAppsRef.path, appIdToDelete));
-                } catch (e) {
-                    console.error("Error removing document: ", e);
-                }
-            }
-        });
-
-        // --- Oyentes en tiempo real de Firestore (onSnapshot) ---
-        // Solo inicializa el listener si Firebase se inicializó correctamente
-        if (db) {
-            onSnapshot(publicAppsRef, (snapshot) => {
-                const apps = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-                
-                if (!publicContent.classList.contains('hidden')) {
-                    renderPublicApps(apps);
-                } else if (!adminPanel.classList.contains('hidden')) {
-                    renderAdminApps(apps);
-                }
+        try {
+            const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ role: "user", parts: [{ text: userMessage }] }],
+                    
+                    // ✅ CORRECCIÓN: Cambiamos 'config' por 'generationConfig'
+                    generationConfig: {
+                        temperature: 0.7, // Creatividad del modelo
+                    }
+                })
             });
+
+            if (!response.ok) {
+                // Si la API devuelve un error (ej. clave incorrecta, límite excedido)
+                const errorData = await response.json();
+                console.error("Error de la API:", errorData);
+                return `Error de la API de Gemini: ${errorData.error.message || response.statusText}`;
+            }
+
+            const data = await response.json();
+            
+            // La respuesta de la API de Gemini viene en un formato específico
+            return data.candidates[0].content.parts[0].text;
+            
+        } catch (error) {
+            console.error("Error de red o desconocido:", error);
+            return "Lo siento, no pude comunicarme con el servicio de IA. Revisa tu conexión a internet o la consola para más detalles.";
         }
+    }
+
+    // Función principal para manejar el envío
+    async function sendMessage() {
+        const messageText = userInput.value.trim();
         
-        console.log("Sitio web cargado. Para acceder al panel de administración, haz clic en el botón 'Admin' en la esquina inferior derecha.");
-    </script>
+        if (messageText === "") {
+            return;
+        }
+
+        // 1. Mostrar el mensaje del usuario
+        addMessage(messageText, true);
+        userInput.value = '';
+        userInput.disabled = true; // Deshabilita la entrada mientras la IA responde
+        sendButton.disabled = true;
+
+        // 2. Mostrar mensaje de "Escribiendo..."
+        const loadingDiv = addMessage("", false, true); 
+
+        // 3. Obtener la respuesta real de Gemini
+        const aiResponse = await getAiResponse(messageText);
+
+        // 4. Eliminar el mensaje de carga y añadir la respuesta final
+        chatBox.removeChild(loadingDiv); 
+        addMessage(aiResponse, false);
+
+        // 5. Habilitar la entrada
+        userInput.disabled = false;
+        sendButton.disabled = false;
+        userInput.focus();
+    }
+
+    // Asignar los eventos
+    sendButton.addEventListener('click', sendMessage);
+    
+    userInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+</script>
+
 </body>
 </html>
