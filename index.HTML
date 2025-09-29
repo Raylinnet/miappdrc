@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot IA (Solo HTML/JS con clave expuesta)</title>
+    <style>
+        /* CSS BÁSICO - Mantenemos el estilo de la estructura anterior */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 600px;
+            height: 80vh;
+            background-color: #fff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .chat-box {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 18px;
+            max-width: 75%;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background-color: #DCF8C6;
+            margin-left: auto;
+        }
+
+        .ia-message {
+            background-color: #E5E5EA;
+            margin-right: auto;
+        }
+        
+        .loading-message {
+            background-color: #ccc;
+            animation: pulse 1.5s infinite;
+        }
+
+        .chat-input-area {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #ddd;
+        }
+
+        .chat-input-area input[type="text"] {
+            flex-grow: 1;
+            padding: 10px 15px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            font-size: 1em;
+            margin-right: 10px;
+        }
+
+        .chat-input-area button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        .chat-input-area button:hover {
+            background-color: #45a049;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1.0; }
+            100% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <div class="chat-header">
+        DRC IA
+    </div>
+
+    <div class="chat-box" id="chat-box">
+        <div class="message ia-message">
+            ¡Hola! Soy un asistente impulsado por DRC preguntame lo que quieras..
+        </div>
+    </div>
+
+    <div class="chat-input-area">
+        <input type="text" id="user-input" placeholder="Escribe tu mensaje aquí..." autofocus>
+        <button id="send-button">Enviar</button>
+    </div>
+</div>
+
+<script>
+    // 🛑 ATENCIÓN DE SEGURIDAD: ESTA CLAVE ESTÁ EXPUESTA EN EL CÓDIGO FUENTE.
+    // Solo úsala para pruebas personales.
+    const GEMINI_API_KEY = "AIzaSyCTHw8eAprGb9ttKwnA8L__FxTEV9c1K84"; 
+    const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+    
+    // Referencias a los elementos del DOM
+    const chatBox = document.getElementById('chat-box');
+    const userInput = document.getElementById('user-input');
+    const sendButton = document.getElementById('send-button');
+
+    // Función para añadir un mensaje (con clase para estilos)
+    function addMessage(messageText, isUser, isLoading = false) {
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message');
+        
+        if (isUser) {
+            messageDiv.classList.add('user-message');
+        } else {
+            messageDiv.classList.add('ia-message');
+        }
+
+        if (isLoading) {
+             messageDiv.classList.add('loading-message');
+             messageText = 'Escribiendo...'; 
+        }
+        
+        messageDiv.textContent = messageText;
+        chatBox.appendChild(messageDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        
+        return messageDiv; // Devuelve la referencia para poder eliminar/modificar si es "cargando"
+    }
+
+    // Lógica para comunicarse con la API de Gemini (Función principal)
+    async function getAiResponse(userMessage) {
+        // La clave API es correcta, pero la dejamos para que el usuario sepa dónde está.
+        if (!GEMINI_API_KEY || GEMINI_API_KEY.includes('TU_CLAVE')) {
+            return "ERROR: La clave API no está configurada.";
+        }
+        
+        try {
+            const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ role: "user", parts: [{ text: userMessage }] }],
+                    
+                    // ✅ CORRECCIÓN: Cambiamos 'config' por 'generationConfig'
+                    generationConfig: {
+                        temperature: 0.7, // Creatividad del modelo
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                // Si la API devuelve un error (ej. clave incorrecta, límite excedido)
+                const errorData = await response.json();
+                console.error("Error de la API:", errorData);
+                return `Error de la API de Gemini: ${errorData.error.message || response.statusText}`;
+            }
+
+            const data = await response.json();
+            
+            // La respuesta de la API de Gemini viene en un formato específico
+            return data.candidates[0].content.parts[0].text;
+            
+        } catch (error) {
+            console.error("Error de red o desconocido:", error);
+            return "Lo siento, no pude comunicarme con el servicio de IA. Revisa tu conexión a internet o la consola para más detalles.";
+        }
+    }
+
+    // Función principal para manejar el envío
+    async function sendMessage() {
+        const messageText = userInput.value.trim();
+        
+        if (messageText === "") {
+            return;
+        }
+
+        // 1. Mostrar el mensaje del usuario
+        addMessage(messageText, true);
+        userInput.value = '';
+        userInput.disabled = true; // Deshabilita la entrada mientras la IA responde
+        sendButton.disabled = true;
+
+        // 2. Mostrar mensaje de "Escribiendo..."
+        const loadingDiv = addMessage("", false, true); 
+
+        // 3. Obtener la respuesta real de Gemini
+        const aiResponse = await getAiResponse(messageText);
+
+        // 4. Eliminar el mensaje de carga y añadir la respuesta final
+        chatBox.removeChild(loadingDiv); 
+        addMessage(aiResponse, false);
+
+        // 5. Habilitar la entrada
+        userInput.disabled = false;
+        sendButton.disabled = false;
+        userInput.focus();
+    }
+
+    // Asignar los eventos
+    sendButton.addEventListener('click', sendMessage);
+    
+    userInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+</script>
+
+</body>
+</html>
